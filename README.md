@@ -26,7 +26,7 @@ Install the following before getting started:
 - [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
 - `bash` and `nc` (netcat)
 
-You also need a [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) account with a tunnel created and a tunnel token.
+You also need a [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) account with a tunnel created.
 
 ## Setup
 
@@ -37,18 +37,27 @@ git clone https://github.com/your-username/mini-tunnel.git
 cd mini-tunnel
 ```
 
-2. Create your `.env` file from the example:
+2. Install cloudflared as a system service:
+
+```bash
+brew install cloudflared
+sudo cloudflared service install <your-tunnel-token>
+```
+
+This runs cloudflared in the background via launchd so it starts on boot. The scripts will detect the system service and skip manual cloudflared management.
+
+3. Create your `.env` file from the example:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Fill in the required variables in `.env`:
+4. Fill in the required variables in `.env`:
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `PASS_KEY` | Yes | — | Password for the openchamber UI |
-| `CF_TUNNEL_TOKEN` | Yes | — | Cloudflare tunnel token from the Zero Trust dashboard |
+| `CF_TUNNEL_TOKEN` | No | — | Only needed if not using the system service |
 | `OPENCODE_PORT` | No | `4096` | Local port for the opencode server |
 | `OPENCHAMBER_PORT` | No | `3000` | Local port for the openchamber server |
 | `CF_HOSTNAME` | No | `quinmini.leanflag.net` | Public hostname mapped to your tunnel |
@@ -61,7 +70,7 @@ cp .env.example .env
 ./start.sh
 ```
 
-This launches opencode, openchamber, and cloudflared. On success it prints the local and public URLs.
+This launches opencode and openchamber. If cloudflared is running as a system service, it's skipped; otherwise it's started manually. On success it prints the local and public URLs.
 
 ### Check status
 

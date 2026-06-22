@@ -21,7 +21,11 @@ kill_pid() {
   fi
 }
 
-kill_pid "cloudflared" "cloudflared"
+if launchctl list 2>/dev/null | grep -q cloudflared && [ ! -f "$PID_DIR/cloudflared.pid" ]; then
+  echo "cloudflared: managed by system service (skipping stop)"
+else
+  kill_pid "cloudflared" "cloudflared"
+fi
 kill_pid "openchamber" "openchamber"
 kill_pid "opencode" "opencode"
 

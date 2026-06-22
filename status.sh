@@ -22,4 +22,9 @@ check_pid() {
 
 check_pid "opencode" "opencode"
 check_pid "openchamber" "openchamber"
-check_pid "cloudflared" "cloudflared"
+
+if launchctl list 2>/dev/null | grep -q cloudflared; then
+  echo "cloudflared: running (system service)"
+else
+  check_pid "cloudflared" "cloudflared"
+fi

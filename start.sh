@@ -50,16 +50,26 @@ echo "$OPENCHAMBER_PID" > "$DIR/tmp/openchamber.pid"
 wait_for_port "$OPENCHAMBER_PORT" "openchamber" 15
 
 # --- cloudflared tunnel ---
-echo "Starting cloudflared tunnel..."
-cloudflared tunnel run --token "$CF_TUNNEL_TOKEN" > "$DIR/cloudflared.log" 2>&1 &
-CLOUDFLARED_PID=$!
-echo "$CLOUDFLARED_PID" > "$DIR/tmp/cloudflared.pid"
+CLOUDFLARED_MANAGED=false
+if launchctl list 2>/dev/null | grep -q cloudflared; then
+  echo "cloudflared is running as a system service (skipping manual start)"
+  CLOUDFLARED_MANAGED=true
+else
+  echo "Starting cloudflared tunnel..."
+  cloudflared tunnel run --token "$CF_TUNNEL_TOKEN" > "$DIR/cloudflared.log" 2>&1 &
+  CLOUDFLARED_PID=$!
+  echo "$CLOUDFLARED_PID" > "$DIR/tmp/cloudflared.pid"
+fi
 
 echo ""
 echo "=== All services started ==="
 echo "  opencode:     http://127.0.0.1:$OPENCODE_PORT (PID $OPENCODE_PID)"
 echo "  openchamber:  http://127.0.0.1:$OPENCHAMBER_PORT (PID $OPENCHAMBER_PID)"
-echo "  tunnel:       https://$CF_HOSTNAME (PID $CLOUDFLARED_PID)"
+if [ "$CLOUDFLARED_MANAGED" = true ]; then
+  echo "  tunnel:       https://$CF_HOSTNAME (system service)"
+else
+  echo "  tunnel:       https://$CF_HOSTNAME (PID $CLOUDFLARED_PID)"
+fi
 echo ""
 echo "Logs: $DIR/*.log"
 echo "Stop: $DIR/stop.sh"
