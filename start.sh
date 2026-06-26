@@ -12,7 +12,7 @@ set -a
 source "$DIR/.env"
 set +a
 
-source "$DIR/lib.sh"
+. "$DIR/lib.sh"
 
 OPENCODE_PORT="${OPENCODE_PORT:-4096}"
 OPENCHAMBER_PORT="${OPENCHAMBER_PORT:-3000}"
@@ -68,7 +68,7 @@ ensure_port_free() {
   fi
 
   echo "Error: port $port is already in use by another process (PID ${owner_pid:-unknown})."
-  echo "  Use '$DIR/stop.sh' to stop existing services first,"
+  echo "  Run '$DIR/restart.sh' to stop, clean up, and restart everything,"
   echo "  or '$DIR/start.sh --force' to kill the occupant and restart."
   exit 1
 }

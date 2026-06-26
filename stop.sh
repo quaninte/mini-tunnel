@@ -7,11 +7,11 @@ PID_DIR="$DIR/tmp"
 # Source .env for port config (optional, defaults used if missing)
 if [ -f "$DIR/.env" ]; then
   set -a
-  source "$DIR/.env"
+  . "$DIR/.env"
   set +a
 fi
 
-source "$DIR/lib.sh"
+. "$DIR/lib.sh"
 
 cloudflared_is_service() {
   if command -v launchctl >/dev/null 2>&1; then
@@ -41,9 +41,11 @@ kill_pid() {
     echo "$name: no pidfile found"
   fi
 
-  # Wait for the port to actually be released
-  if [ -n "${port:-}" ]; then
-    wait_for_port_free "$port" 10 || echo "Warning: port $port still occupied after stopping $name"
+  # If the port is still occupied (by a process our pidfile didn't know about),
+  # kill whoever is on it.
+  if [ -n "${port:-}" ] && is_port_in_use "$port"; then
+    echo "$name: port $port still occupied by another process, killing it..."
+    kill_port_occupant "$port"
   fi
 }
 

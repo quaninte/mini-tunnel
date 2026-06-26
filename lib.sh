@@ -96,6 +96,28 @@ clean_all_openchamber_stale_state() {
   fi
 }
 
+# --- Port occupant helpers ---
+
+# Kill whatever process is listening on a TCP port.
+# Returns 0 on success (port free), 1 on failure.
+kill_port_occupant() {
+  local port=$1
+  local owner_pid
+  owner_pid=$(get_port_owner_pid "$port")
+  if [ -z "$owner_pid" ]; then
+    return 0
+  fi
+
+  echo "Killing process $owner_pid occupying port $port..."
+  kill_and_wait "$owner_pid" 5 3
+
+  wait_for_port_free "$port" 10 || {
+    echo "Warning: port $port still occupied after killing PID $owner_pid"
+    return 1
+  }
+  return 0
+}
+
 # --- Process helpers ---
 
 # Check whether a PID is alive.

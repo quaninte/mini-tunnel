@@ -4,7 +4,7 @@ set -eu
 DIR="$(cd "$(dirname "$0")" && pwd)"
 PID_DIR="$DIR/tmp"
 
-source "$DIR/lib.sh"
+. "$DIR/lib.sh"
 
 cloudflared_is_service() {
   if command -v launchctl >/dev/null 2>&1; then
