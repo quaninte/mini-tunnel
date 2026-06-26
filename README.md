@@ -24,7 +24,7 @@ Install the following before getting started:
 - [opencode](https://opencode.ai) CLI
 - [openchamber](https://github.com/nicholasgriffintn/openchamber) CLI
 - [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
-- `bash` and `nc` (netcat)
+- `bash` (required by the `#!/usr/bin/env bash` scripts)
 
 You also need a [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) account with a tunnel created.
 
@@ -37,14 +37,23 @@ git clone https://github.com/your-username/mini-tunnel.git
 cd mini-tunnel
 ```
 
-2. Install cloudflared as a system service:
+2. Install cloudflared and register it as a system service:
 
 ```bash
+# macOS
 brew install cloudflared
+
+# Ubuntu / Debian
+sudo mkdir -p --mode=0755 /usr/share/keyrings
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" | sudo tee /etc/apt/sources.list.d/cloudflared.list
+sudo apt-get update && sudo apt-get install -y cloudflared
+
+# Both platforms
 sudo cloudflared service install <your-tunnel-token>
 ```
 
-This runs cloudflared in the background via launchd so it starts on boot. The scripts will detect the system service and skip manual cloudflared management.
+This runs cloudflared in the background via launchd on macOS or systemd on Linux so it starts on boot. The scripts detect the active system service and skip manual cloudflared management on both platforms.
 
 3. Create your `.env` file from the example:
 

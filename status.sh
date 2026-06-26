@@ -4,6 +4,16 @@ set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 PID_DIR="$DIR/tmp"
 
+cloudflared_is_service() {
+  if command -v launchctl >/dev/null 2>&1; then
+    launchctl list 2>/dev/null | grep -q cloudflared
+  elif command -v systemctl >/dev/null 2>&1; then
+    systemctl is-active --quiet cloudflared 2>/dev/null
+  else
+    return 1
+  fi
+}
+
 check_pid() {
   local name=$1
   local pidfile="$PID_DIR/$2.pid"
@@ -23,7 +33,7 @@ check_pid() {
 check_pid "opencode" "opencode"
 check_pid "openchamber" "openchamber"
 
-if launchctl list 2>/dev/null | grep -q cloudflared; then
+if cloudflared_is_service; then
   echo "cloudflared: running (system service)"
 else
   check_pid "cloudflared" "cloudflared"

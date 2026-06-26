@@ -16,10 +16,20 @@ OPENCODE_PORT="${OPENCODE_PORT:-4096}"
 OPENCHAMBER_PORT="${OPENCHAMBER_PORT:-3000}"
 CF_HOSTNAME="${CF_HOSTNAME:-quinmini.leanflag.net}"
 
+cloudflared_is_service() {
+  if command -v launchctl >/dev/null 2>&1; then
+    launchctl list 2>/dev/null | grep -q cloudflared
+  elif command -v systemctl >/dev/null 2>&1; then
+    systemctl is-active --quiet cloudflared 2>/dev/null
+  else
+    return 1
+  fi
+}
+
 wait_for_port() {
   local port=$1 name=$2 max=${3:-30}
   local i=0
-  while ! nc -z 127.0.0.1 "$port" 2>/dev/null; do
+  while ! (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do
     i=$((i + 1))
     if [ "$i" -ge "$max" ]; then
       echo "Timeout waiting for $name on port $port"
@@ -51,7 +61,7 @@ wait_for_port "$OPENCHAMBER_PORT" "openchamber" 15
 
 # --- cloudflared tunnel ---
 CLOUDFLARED_MANAGED=false
-if launchctl list 2>/dev/null | grep -q cloudflared; then
+if cloudflared_is_service; then
   echo "cloudflared is running as a system service (skipping manual start)"
   CLOUDFLARED_MANAGED=true
 else
