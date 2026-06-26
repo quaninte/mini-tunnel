@@ -95,7 +95,23 @@ Reports whether each service is running.
 ./stop.sh
 ```
 
-Stops all services in reverse order and cleans up PID files.
+Stops all services in reverse order and cleans up PID files. Waits for each process to exit and ensures ports are released before returning.
+
+### Restart all services
+
+```bash
+./restart.sh
+```
+
+Stops all running services, waits for all ports to be released, cleans up stale state, then starts everything fresh. This is the safest way to restart after updates or crashes.
+
+### Force restart
+
+```bash
+./start.sh --force
+```
+
+Kills any process occupying the configured ports and starts fresh. Useful when `stop.sh` can't clean up a hung process.
 
 ## Logs
 
