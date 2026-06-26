@@ -9,7 +9,7 @@ if [ ! -f "$DIR/.env" ]; then
 fi
 
 set -a
-source "$DIR/.env"
+. "$DIR/.env"
 set +a
 
 OPENCODE_PORT="${OPENCODE_PORT:-4096}"
