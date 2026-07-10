@@ -159,3 +159,18 @@ kill_and_wait() {
   fi
   return 0
 }
+
+# --- Docker helpers ---
+
+# Check whether `docker compose` (the v2 plugin) is usable.
+docker_compose_available() {
+  command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1
+}
+
+# Check whether a container is running. Echoes "true"/"false" via exit status.
+is_container_running() {
+  local name=$1
+  local state
+  state=$(docker inspect -f '{{.State.Running}}' "$name" 2>/dev/null || true)
+  [ "$state" = "true" ]
+}

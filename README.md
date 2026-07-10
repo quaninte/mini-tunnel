@@ -1,6 +1,11 @@
 # mini-tunnel
 
-A lightweight Bash orchestration tool that runs [opencode](https://opencode.ai) behind a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/), making your local AI coding environment publicly accessible and password-protected.
+A lightweight Bash orchestration tool that runs [opencode](https://opencode.ai) and/or [OpenWebUI](https://github.com/open-webui/open-webui) behind a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/), making them publicly accessible and password-protected.
+
+mini-tunnel manages two independent **stacks** that can be enabled separately or together:
+
+- **Code stack** — opencode + openchamber, run as native background processes (the original mini-tunnel behavior).
+- **OpenWebUI** — runs as a single Docker container via `docker compose`.
 
 ## Architecture
 
@@ -8,23 +13,26 @@ A lightweight Bash orchestration tool that runs [opencode](https://opencode.ai) 
 Internet
     │
     ▼
-Cloudflare Tunnel  (cloudflared)
+Cloudflare Tunnel  (cloudflared, one tunnel — two possible public hostnames)
     │
-    ▼
-openchamber        (port 3000, password-protected UI)
+    ├──▶ CF_HOSTNAME ────────▶ openchamber   (port 3000, password-protected UI)
+    │                              │
+    │                              ▼
+    │                         opencode serve (port 4096, localhost only)
     │
-    ▼
-opencode serve     (port 4096, localhost only)
+    └──▶ OPENWEBUI_HOSTNAME ─▶ OpenWebUI     (port 8080, Docker container, own login)
 ```
+
+Either branch can be enabled on its own, or both at once — see [Stacks](#stacks) below.
 
 ## Prerequisites
 
 Install the following before getting started:
 
-- [opencode](https://opencode.ai) CLI
-- [openchamber](https://github.com/nicholasgriffintn/openchamber) CLI
 - [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
 - `bash` (required by the `#!/usr/bin/env bash` scripts)
+- For the **code stack** (`ENABLE_CODE_STACK=true`, the default): [opencode](https://opencode.ai) CLI and [openchamber](https://github.com/nicholasgriffintn/openchamber) CLI
+- For **OpenWebUI** (`ENABLE_OPENWEBUI=true`): Docker with the `compose` plugin (Docker Desktop on macOS, or Docker Engine + `docker-compose-plugin` on Linux)
 
 You also need a [Cloudflare Zero Trust](https://one.dash.cloudflare.com/) account with a tunnel created.
 
@@ -65,21 +73,58 @@ cp .env.example .env
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `PASS_KEY` | Yes | — | Password for the openchamber UI |
+| `PASS_KEY` | Yes (code stack) | — | Password for the openchamber UI |
 | `CF_TUNNEL_TOKEN` | No | — | Only needed if not using the system service |
 | `OPENCODE_PORT` | No | `4096` | Local port for the opencode server |
 | `OPENCHAMBER_PORT` | No | `3000` | Local port for the openchamber server |
-| `CF_HOSTNAME` | No | `quinmini.leanflag.net` | Public hostname mapped to your tunnel |
+| `CF_HOSTNAME` | No | `quinmini.leanflag.net` | Public hostname mapped to the code stack |
+| `ENABLE_CODE_STACK` | No | `true` | Run opencode + openchamber |
+| `ENABLE_OPENWEBUI` | No | `false` | Run OpenWebUI via Docker Compose |
+| `OPENWEBUI_PORT` | No | `8080` | Local port for OpenWebUI |
+| `OPENWEBUI_TAG` | No | `main` | Docker image tag for `ghcr.io/open-webui/open-webui` |
+| `OPENWEBUI_HOSTNAME` | No | — | Public hostname mapped to OpenWebUI |
+| `OPENWEBUI_SECRET_KEY` | No | — | Signing key for OpenWebUI sessions; set it to keep sessions valid across restarts |
+
+An existing `.env` from before this feature (missing the `ENABLE_*`/`OPENWEBUI_*` keys entirely) still works unchanged — it defaults to the code stack only, exactly like before.
+
+## Stacks
+
+Toggle stacks independently in `.env`:
+
+```bash
+# Code stack only (default, original behavior)
+ENABLE_CODE_STACK=true
+ENABLE_OPENWEBUI=false
+
+# OpenWebUI only
+ENABLE_CODE_STACK=false
+ENABLE_OPENWEBUI=true
+
+# Both at once
+ENABLE_CODE_STACK=true
+ENABLE_OPENWEBUI=true
+```
+
+### Routing both stacks through the tunnel
+
+There is one Cloudflare Tunnel, but it can carry multiple public hostnames — each mapped to a different local port via a **Public Hostname** rule in the [Zero Trust dashboard](https://one.dash.cloudflare.com/) (Networks → Tunnels → your tunnel → Public Hostname tab). If you enable both stacks, add one rule per stack:
+
+| Hostname (`.env` var) | Service | Local URL |
+|---|---|---|
+| `CF_HOSTNAME` | Code stack | `http://127.0.0.1:$OPENCHAMBER_PORT` |
+| `OPENWEBUI_HOSTNAME` | OpenWebUI | `http://127.0.0.1:$OPENWEBUI_PORT` |
+
+If `ENABLE_OPENWEBUI=true` but `OPENWEBUI_HOSTNAME` is unset, `start.sh` still brings OpenWebUI up locally but prints a warning — it won't be reachable through the tunnel until you add its Public Hostname rule.
 
 ## Usage
 
-### Start all services
+### Start enabled stacks
 
 ```bash
 ./start.sh
 ```
 
-This launches opencode and openchamber. If cloudflared is running as a system service, it's skipped; otherwise it's started manually. On success it prints the local and public URLs.
+This launches whichever stacks are enabled in `.env`. If cloudflared is running as a system service, it's skipped; otherwise it's started manually. On success it prints the local and public URLs for each enabled stack.
 
 ### Check status
 
@@ -115,11 +160,17 @@ Kills any process occupying the configured ports and starts fresh. Useful when `
 
 ## Logs
 
-Service output is written to log files in the project root:
+Native code-stack processes write log files in the project root:
 
 - `opencode.log`
 - `openchamber.log`
 - `cloudflared.log`
+
+OpenWebUI runs as a Docker container, so its logs are available via Docker instead:
+
+```bash
+docker compose logs -f open-webui
+```
 
 ## License
 

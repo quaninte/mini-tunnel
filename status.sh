@@ -4,7 +4,19 @@ set -eu
 DIR="$(cd "$(dirname "$0")" && pwd)"
 PID_DIR="$DIR/tmp"
 
+if [ -f "$DIR/.env" ]; then
+  set -a
+  . "$DIR/.env"
+  set +a
+fi
+
 . "$DIR/lib.sh"
+. "$DIR/code_stack.sh"
+. "$DIR/openwebui.sh"
+
+OPENWEBUI_PORT="${OPENWEBUI_PORT:-8080}"
+ENABLE_CODE_STACK="${ENABLE_CODE_STACK:-true}"
+ENABLE_OPENWEBUI="${ENABLE_OPENWEBUI:-false}"
 
 cloudflared_is_service() {
   if command -v launchctl >/dev/null 2>&1; then
@@ -16,7 +28,7 @@ cloudflared_is_service() {
   fi
 }
 
-check_service() {
+check_pid_service() {
   local name=$1 port=$2 pidfile="$PID_DIR/$3.pid"
   local status="not started"
 
@@ -39,11 +51,21 @@ check_service() {
   echo "$name: $status"
 }
 
-check_service "opencode" "${OPENCODE_PORT:-4096}" "opencode"
-check_service "openchamber" "${OPENCHAMBER_PORT:-3000}" "openchamber"
+if [ "$ENABLE_CODE_STACK" = true ]; then
+  status_code_stack
+else
+  echo "opencode: disabled (ENABLE_CODE_STACK=false)"
+  echo "openchamber: disabled (ENABLE_CODE_STACK=false)"
+fi
+
+if [ "$ENABLE_OPENWEBUI" = true ]; then
+  status_openwebui
+else
+  echo "openwebui: disabled (ENABLE_OPENWEBUI=false)"
+fi
 
 if cloudflared_is_service; then
   echo "cloudflared: running (system service)"
 else
-  check_service "cloudflared" "" "cloudflared"
+  check_pid_service "cloudflared" "" "cloudflared"
 fi
