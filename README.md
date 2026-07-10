@@ -84,6 +84,7 @@ cp .env.example .env
 | `OPENWEBUI_TAG` | No | `main` | Docker image tag for `ghcr.io/open-webui/open-webui` |
 | `OPENWEBUI_HOSTNAME` | No | — | Public hostname mapped to OpenWebUI |
 | `OPENWEBUI_SECRET_KEY` | No | — | Signing key for OpenWebUI sessions; set it to keep sessions valid across restarts |
+| `OPENWEBUI_CF_TUNNEL_TOKEN` | No | — | Only set this if OpenWebUI has its own dedicated Cloudflare Tunnel (see [Routing both stacks](#routing-both-stacks-through-the-tunnel)) |
 
 An existing `.env` from before this feature (missing the `ENABLE_*`/`OPENWEBUI_*` keys entirely) still works unchanged — it defaults to the code stack only, exactly like before.
 
@@ -107,14 +108,29 @@ ENABLE_OPENWEBUI=true
 
 ### Routing both stacks through the tunnel
 
-There is one Cloudflare Tunnel, but it can carry multiple public hostnames — each mapped to a different local port via a **Public Hostname** rule in the [Zero Trust dashboard](https://one.dash.cloudflare.com/) (Networks → Tunnels → your tunnel → Public Hostname tab). If you enable both stacks, add one rule per stack:
+There are two ways to expose both stacks. Pick one — don't mix them for the same hostname.
+
+**Option A: share one tunnel (simpler, recommended)**
+
+A single Cloudflare Tunnel can carry multiple public hostnames — each mapped to a different local port via a **Public Hostname** rule in the [Zero Trust dashboard](https://one.dash.cloudflare.com/) (Networks → Tunnels → your tunnel → Public Hostname tab). Add one rule per stack to your *existing* tunnel (the one `CF_TUNNEL_TOKEN` belongs to):
 
 | Hostname (`.env` var) | Service | Local URL |
 |---|---|---|
 | `CF_HOSTNAME` | Code stack | `http://127.0.0.1:$OPENCHAMBER_PORT` |
 | `OPENWEBUI_HOSTNAME` | OpenWebUI | `http://127.0.0.1:$OPENWEBUI_PORT` |
 
-If `ENABLE_OPENWEBUI=true` but `OPENWEBUI_HOSTNAME` is unset, `start.sh` still brings OpenWebUI up locally but prints a warning — it won't be reachable through the tunnel until you add its Public Hostname rule.
+Leave `OPENWEBUI_CF_TUNNEL_TOKEN` empty — OpenWebUI rides on the same `cloudflared` connector as the code stack.
+
+**Option B: a dedicated tunnel for OpenWebUI**
+
+If you'd rather keep the two stacks on fully separate Cloudflare Tunnels (e.g. you already created a second Tunnel in the dashboard), mini-tunnel will start a second `cloudflared` connector process for it:
+
+1. In the Zero Trust dashboard, create a new Tunnel (Networks → Tunnels → Create a tunnel) and copy its token from the install step (or **Configure → Overview** for an existing tunnel).
+2. Add a Public Hostname rule *on that tunnel* mapping your chosen hostname to `http://127.0.0.1:$OPENWEBUI_PORT`.
+3. In `.env`, set `OPENWEBUI_HOSTNAME` to that hostname and `OPENWEBUI_CF_TUNNEL_TOKEN` to that tunnel's token.
+4. Run `./restart.sh` (or `./start.sh` if nothing else is running). A second connector process starts alongside the code stack's, logging to `cloudflared-openwebui.log` with its own pidfile — `stop.sh`/`status.sh` manage it independently.
+
+If `ENABLE_OPENWEBUI=true` but `OPENWEBUI_HOSTNAME` is unset, `start.sh` still brings OpenWebUI up locally but prints a warning — it won't be reachable through any tunnel until you add a Public Hostname rule for it (Option A or B).
 
 ## Usage
 

@@ -69,3 +69,7 @@ if cloudflared_is_service; then
 else
   check_pid_service "cloudflared" "" "cloudflared"
 fi
+
+if [ "$ENABLE_OPENWEBUI" = true ] && [ -n "${OPENWEBUI_CF_TUNNEL_TOKEN:-}" ]; then
+  check_pid_service "cloudflared-openwebui" "" "cloudflared-openwebui"
+fi

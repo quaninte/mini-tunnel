@@ -54,30 +54,47 @@ if [ "$ENABLE_OPENWEBUI" = true ]; then
   start_openwebui
 fi
 
-# --- cloudflared tunnel ---
+# --- cloudflared tunnel(s) ---
+# The code stack's tunnel (CF_TUNNEL_TOKEN) can either run as a system service or be
+# started here manually. OpenWebUI can share that same tunnel (add a second Public
+# Hostname rule to it in the dashboard, leave OPENWEBUI_CF_TUNNEL_TOKEN empty) or run
+# its own dedicated tunnel (set OPENWEBUI_CF_TUNNEL_TOKEN to that tunnel's token).
 CLOUDFLARED_MANAGED=false
-if cloudflared_is_service; then
-  echo "cloudflared is running as a system service (skipping manual start)"
-  CLOUDFLARED_MANAGED=true
-else
-  echo "Starting cloudflared tunnel..."
-  cloudflared tunnel run --token "$CF_TUNNEL_TOKEN" >"$DIR/cloudflared.log" 2>&1 &
-  CLOUDFLARED_PID=$!
-  echo "$CLOUDFLARED_PID" >"$DIR/tmp/cloudflared.pid"
+if [ "$ENABLE_CODE_STACK" = true ]; then
+  if cloudflared_is_service; then
+    echo "cloudflared (code stack) is running as a system service (skipping manual start)"
+    CLOUDFLARED_MANAGED=true
+  else
+    echo "Starting cloudflared tunnel (code stack)..."
+    cloudflared tunnel run --token "$CF_TUNNEL_TOKEN" >"$DIR/cloudflared.log" 2>&1 &
+    CLOUDFLARED_PID=$!
+    echo "$CLOUDFLARED_PID" >"$DIR/tmp/cloudflared.pid"
+  fi
+fi
+
+if [ "$ENABLE_OPENWEBUI" = true ] && [ -n "${OPENWEBUI_CF_TUNNEL_TOKEN:-}" ]; then
+  echo "Starting cloudflared tunnel (OpenWebUI)..."
+  cloudflared tunnel run --token "$OPENWEBUI_CF_TUNNEL_TOKEN" >"$DIR/cloudflared-openwebui.log" 2>&1 &
+  OPENWEBUI_CLOUDFLARED_PID=$!
+  echo "$OPENWEBUI_CLOUDFLARED_PID" >"$DIR/tmp/cloudflared-openwebui.pid"
 fi
 
 echo ""
 echo "=== All services started ==="
-if [ "$CLOUDFLARED_MANAGED" = true ]; then
-  TUNNEL_STATUS="system service"
-else
-  TUNNEL_STATUS="PID ${CLOUDFLARED_PID:-already running}"
-fi
 if [ "$ENABLE_CODE_STACK" = true ]; then
+  if [ "$CLOUDFLARED_MANAGED" = true ]; then
+    TUNNEL_STATUS="system service"
+  else
+    TUNNEL_STATUS="PID ${CLOUDFLARED_PID:-already running}"
+  fi
   echo "  tunnel:       https://$CF_HOSTNAME ($TUNNEL_STATUS)"
 fi
 if [ "$ENABLE_OPENWEBUI" = true ] && [ -n "${OPENWEBUI_HOSTNAME:-}" ]; then
-  echo "  tunnel:       https://$OPENWEBUI_HOSTNAME ($TUNNEL_STATUS)"
+  if [ -n "${OPENWEBUI_CF_TUNNEL_TOKEN:-}" ]; then
+    echo "  tunnel:       https://$OPENWEBUI_HOSTNAME (PID ${OPENWEBUI_CLOUDFLARED_PID:-already running})"
+  else
+    echo "  tunnel:       https://$OPENWEBUI_HOSTNAME (via code stack's shared tunnel)"
+  fi
 fi
 echo ""
 echo "Logs: $DIR/*.log"

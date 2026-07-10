@@ -48,6 +48,17 @@ else
   fi
 fi
 
+if [ -f "$PID_DIR/cloudflared-openwebui.pid" ]; then
+  pid=$(cat "$PID_DIR/cloudflared-openwebui.pid")
+  if is_process_alive "$pid"; then
+    kill_and_wait "$pid" 5 3
+    echo "Stopped cloudflared-openwebui (PID $pid)"
+  else
+    echo "cloudflared-openwebui (PID $pid) not running"
+  fi
+  rm -f "$PID_DIR/cloudflared-openwebui.pid"
+fi
+
 if [ "$ENABLE_CODE_STACK" = true ]; then
   stop_code_stack
 fi
