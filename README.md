@@ -15,10 +15,10 @@ mini-tunnel manages two independent **stacks** that can be enabled separately or
 Internet
     │
     ▼
-Cloudflare (proxied DNS)  ──▶  195.85.88.187  (dev-openresty / OpenResty :443)
+Cloudflare (proxied DNS)  ──▶  123.16.178.142  (dev-openresty / OpenResty :443)
                                     │
                                     ├─ set_real_ip_from (CF ranges, server-scoped)
-                                    ├─ allow ALLOW_CIDRS; deny all;
+                                    ├─ optional allow ALLOW_CIDRS; deny all;
                                     ├─ oauth2-proxy auth_request (optional)
                                     └─ proxy_pass ──▶ {dev-internal-ip}:{port}
                                                           │
@@ -58,7 +58,7 @@ cp .env.example .env
 ```bash
 # Edit deployments/<name>.env — never invent ALLOW_CIDRS / UPSTREAM_HOST / CF_TOKEN_REF
 ./bin/render.sh <name>
-./bin/cf-dns.sh <name> --dry-run   # then without --dry-run when ready
+OP_ACCOUNT=my.1password.com ./bin/cf-dns.sh <name> --dry-run   # then without --dry-run when ready
 ./bin/expose.sh <name>             # scp + nginx -t + reload (only when user approves)
 ```
 
@@ -97,6 +97,45 @@ ENABLE_OPENWEBUI=false
 ```
 
 Toggle independently. OpenResty vhosts point at `UPSTREAM_HOST:UPSTREAM_PORT` from the deployment record (usually openchamber's port).
+
+## Cloudflare DNS and 1Password
+
+Cloudflare DNS credentials are resolved locally through 1Password CLI. The
+deployment server receives only the Git-tracked `CF_TOKEN_REF` pointer; it never
+receives the token or 1Password credentials.
+
+For a new Cloudflare account or zone:
+
+1. Create a least-privilege Cloudflare API token in the account that owns the
+   zone. Scope it to DNS editing for the required zone.
+2. In the 1Password account, create or reuse the `DevOps` vault.
+3. Create a concealed/password field named `credential` in the item
+   `cloudflare-leanflag-net-dns` and paste the token there.
+4. Store this reference, not the token, in `deployments/<name>.env`:
+
+```bash
+CF_TOKEN_REF=op://DevOps/cloudflare-leanflag-net-dns/credential
+```
+
+Verify the reference without printing the secret:
+
+```bash
+op account list
+op read --account my.1password.com \
+  'op://DevOps/cloudflare-leanflag-net-dns/credential' \
+  >/dev/null && echo "1Password reference works"
+```
+
+Run DNS commands locally and select the 1Password account explicitly when
+needed:
+
+```bash
+OP_ACCOUNT=my.1password.com ./bin/cf-dns.sh <name> --dry-run
+OP_ACCOUNT=my.1password.com ./bin/cf-dns.sh <name>
+```
+
+Never put the plaintext token in Git, a runtime `.env`, the deployment server,
+or shell command output.
 
 ## Usage
 

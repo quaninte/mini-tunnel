@@ -68,7 +68,7 @@ gathered it.
 |------|-------|
 | SSH alias | `local-sbase-dev-openresty` |
 | Internal IP | `10.29.0.50` |
-| Public origin | `195.85.88.187` |
+| Public origin | `123.16.178.142` |
 | OpenResty | 1.21.4.1, built `--with-http_realip_module` |
 
 ## Rendered example field map

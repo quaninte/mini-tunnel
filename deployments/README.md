@@ -12,7 +12,7 @@ Git-tracked registry of mini-tunnel deployments fronted by OpenResty.
 | `CF_ZONE` | yes | Cloudflare zone name |
 | `CF_TOKEN_REF` | yes | `op://vault/item/field` for the CF API token |
 | `CF_PROXIED` | yes | `true` / `false` (orange cloud) |
-| `ORIGIN_IP` | yes | OpenResty public IP (`195.85.88.187`) |
+| `ORIGIN_IP` | yes | OpenResty public IP (`123.16.178.142`) |
 | `UPSTREAM_HOST` | yes | Dev server internal IP running mini-tunnel |
 | `UPSTREAM_PORT` | yes | Port openchamber/OpenWebUI listens on |
 | `OPENRESTY_HOST` | yes | SSH alias for the OpenResty box |
@@ -39,6 +39,42 @@ OpenResty box path.
 5. Render: `./bin/render.sh <name>` → writes `deployments/<name>.conf`.
 6. DNS (dry-run first): `./bin/cf-dns.sh <name> --dry-run` then without `--dry-run`.
 7. Apply: `./bin/expose.sh <name>` (render → scp → `nginx -t` → reload; rolls back on fail).
+
+## Cloudflare token in 1Password
+
+`CF_TOKEN_REF` is a secret reference, not the token itself. The token must be
+stored locally in 1Password and resolved by `bin/cf-dns.sh` on the operator
+workstation. Do not copy the token or 1Password credentials to the deployment
+server.
+
+For the `leanflag.net` DNS deployment, use the `DevOps` vault, item
+`cloudflare-leanflag-net-dns`, and a concealed/password field named
+`credential`:
+
+```bash
+CF_TOKEN_REF=op://DevOps/cloudflare-leanflag-net-dns/credential
+```
+
+If the item is in a different 1Password account, identify the account and test
+the reference without printing its value:
+
+```bash
+op account list
+op read --account my.1password.com \
+  'op://DevOps/cloudflare-leanflag-net-dns/credential' \
+  >/dev/null && echo "1Password reference works"
+```
+
+Run the DNS dry run and live upsert locally with the account selected:
+
+```bash
+OP_ACCOUNT=my.1password.com ./bin/cf-dns.sh <name> --dry-run
+OP_ACCOUNT=my.1password.com ./bin/cf-dns.sh <name>
+```
+
+The CLI account selector is only needed when `DevOps` is not in the default
+1Password account. Never run `op read` without redirecting output when testing
+this token reference.
 
 ### Change a deployment
 

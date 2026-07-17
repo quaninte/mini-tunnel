@@ -24,13 +24,14 @@ Ports: OpenChamber `3101` (bind `10.29.0.69`), opencode `4197` (loopback only).
 `PASS_KEY` lives only in remote `.env` (never in Git).
 CF token: `op://DevOps/cloudflare-leanflag-net-dns/credential` (local `op` only).
 
-OpenResty origin: `195.85.88.187` (SSH `local-sbase-dev-openresty`, internal `10.29.0.50`).
+OpenResty origin: `123.16.178.142` (SSH `local-sbase-dev-openresty`, internal `10.29.0.50`).
 Wildcard cert `*.leanflag.net` covers the hostname.
 
 **Rollout (2026-07-17):** vhost applied via `bin/expose.sh` (`nginx -t` ok). Upstream
-`10.29.0.69:3101/health` → 200 from OpenResty. Cloudflare DNS upserted locally with
-`OP_ACCOUNT=my.1password.com`: A record proxied to `195.85.88.187`. Public HTTPS and
-direct origin HTTPS both return 302 to SSO oauth2 sign-in. DNS resolves via Cloudflare.
+`10.29.0.69:3101/health` → 200 from OpenResty. The configured origin target is now
+`123.16.178.142`; rerun the local 1Password-backed `cf-dns.sh` upsert to converge the
+live A record after this correction. Public HTTPS and direct origin HTTPS previously
+returned 302 to SSO oauth2 sign-in.
 
 ### example
 
@@ -49,5 +50,5 @@ origin routing. Ships as `DEPLOY_STATUS=pending` until the user fills:
 Do not invent values for those fields. `validate_deployment` rejects
 `DEPLOY_STATUS=active` with `ALLOW_CIDRS=__FILL_ME__` or empty allowlist + `AUTH_MODE=none`.
 
-OpenResty origin: `195.85.88.187` (SSH alias `local-sbase-dev-openresty`,
+OpenResty origin: `123.16.178.142` (SSH alias `local-sbase-dev-openresty`,
 internal `10.29.0.50`). Wildcard cert `*.leanflag.net` already covers the hostname.
