@@ -2,6 +2,46 @@
 # Shared utilities for mini-tunnel scripts.
 # Source this file from other scripts in the same directory.
 
+# --- checkout-local OpenCode/OpenChamber profile ---
+
+# Configure all code-stack state below this mini-tunnel checkout. OpenCode
+# reads configuration from OPENCODE_CONFIG_DIR and its durable data/state/cache
+# from the XDG directories; OpenChamber uses OPENCHAMBER_DATA_DIR for its
+# instance metadata and run files.
+configure_code_profile() {
+  local profile_dir="${OPENCODE_PROFILE_DIR:-$DIR/.opencode-profile}"
+
+  # Relative overrides are resolved against this checkout so callers cannot
+  # accidentally make one deployment share another deployment's profile.
+  case "$profile_dir" in
+    /*) ;;
+    *) profile_dir="$DIR/$profile_dir" ;;
+  esac
+
+  export OPENCODE_PROFILE_DIR="$profile_dir"
+  export OPENCODE_CONFIG_DIR="$profile_dir/config"
+  export XDG_DATA_HOME="$profile_dir/data"
+  export XDG_STATE_HOME="$profile_dir/state"
+  export XDG_CACHE_HOME="$profile_dir/cache"
+  export OPENCHAMBER_DATA_DIR="$profile_dir/openchamber"
+
+  mkdir -p \
+    "$OPENCODE_CONFIG_DIR" \
+    "$XDG_DATA_HOME" \
+    "$XDG_STATE_HOME" \
+    "$XDG_CACHE_HOME" \
+    "$OPENCHAMBER_DATA_DIR"
+
+  # Profile directories contain provider credentials and chat history.
+  chmod 700 \
+    "$OPENCODE_PROFILE_DIR" \
+    "$OPENCODE_CONFIG_DIR" \
+    "$XDG_DATA_HOME" \
+    "$XDG_STATE_HOME" \
+    "$XDG_CACHE_HOME" \
+    "$OPENCHAMBER_DATA_DIR"
+}
+
 # --- DNS / TCP port helpers ---
 
 # Check whether a TCP port is in LISTEN state on 127.0.0.1.

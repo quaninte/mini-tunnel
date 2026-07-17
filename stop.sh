@@ -22,6 +22,8 @@ ENABLE_CODE_STACK="${ENABLE_CODE_STACK:-true}"
 ENABLE_OPENWEBUI="${ENABLE_OPENWEBUI:-false}"
 ENABLE_CF_TUNNEL="${ENABLE_CF_TUNNEL:-false}"
 
+configure_code_profile
+
 cloudflared_is_service() {
   if command -v launchctl >/dev/null 2>&1; then
     launchctl list 2>/dev/null | grep -q cloudflared

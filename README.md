@@ -77,6 +77,7 @@ OP_ACCOUNT=my.1password.com ./bin/cf-dns.sh <name> --dry-run   # then without --
 | `ENABLE_CF_TUNNEL` | No | `false` | **Deprecated.** If true, start cloudflared (legacy) |
 | `OPENCODE_PORT` | No | `4096` | Local port for the opencode server |
 | `OPENCHAMBER_PORT` | No | `3000` | Local port for the openchamber server |
+| `OPENCODE_PROFILE_DIR` | No | `<checkout>/.opencode-profile` | Private profile root for OpenCode/OpenChamber config, credentials, sessions, state, and cache |
 | `ENABLE_CODE_STACK` | No | `true` | Run opencode + openchamber |
 | `ENABLE_OPENWEBUI` | No | `false` | Run OpenWebUI via Docker Compose |
 | `OPENWEBUI_PORT` | No | `8080` | Local port for OpenWebUI |
@@ -88,6 +89,18 @@ OP_ACCOUNT=my.1password.com ./bin/cf-dns.sh <name> --dry-run   # then without --
 | `OPENWEBUI_CF_TUNNEL_TOKEN` | No | — | **Deprecated** dedicated OpenWebUI tunnel token |
 
 An existing `.env` without `BIND_ADDR` still binds `127.0.0.1`. An existing `.env` without `ENABLE_CF_TUNNEL` will **not** start cloudflared (default `false` — intentional breaking change for tunnel mode).
+
+### Per-checkout OpenCode profiles
+
+Each checkout keeps its OpenCode and OpenChamber state below
+`.opencode-profile/` by default. This includes provider credentials, plugins,
+chat sessions, preferences, logs, cache, and OpenChamber run metadata, so two
+mini-tunnel clones under the same Unix user do not share chat sessions. The
+directory is ignored by Git and is created on the first lifecycle command.
+
+Profiles are intentionally fresh and require provider authentication again.
+Set `OPENCODE_PROFILE_DIR` to a private persistent mount when a deployment
+replaces its checkout; never point two deployments at the same profile root.
 
 ## Stacks
 

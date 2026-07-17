@@ -1,6 +1,7 @@
 .env
 *.log
 tmp/
+.opencode-profile/
 .serena/memories
 
 # Agents

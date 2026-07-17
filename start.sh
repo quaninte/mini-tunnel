@@ -25,6 +25,8 @@ ENABLE_OPENWEBUI="${ENABLE_OPENWEBUI:-false}"
 BIND_ADDR="${BIND_ADDR:-127.0.0.1}"
 ENABLE_CF_TUNNEL="${ENABLE_CF_TUNNEL:-false}"
 
+configure_code_profile
+
 FORCE=false
 if [ "${1:-}" = "--force" ] || [ "${1:-}" = "-f" ]; then
   FORCE=true

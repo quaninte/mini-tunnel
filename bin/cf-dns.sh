@@ -9,13 +9,15 @@ DIR="$(cd "$(dirname "$0")/.." && pwd)"
 . "$DIR/lib_deploy.sh"
 
 usage() {
-  echo "Usage: $0 <deployment-name> [--dry-run]" >&2
+  echo "Usage: $0 <deployment-name> [--dry-run] [--replace-cname]" >&2
   echo "  op read CF_TOKEN_REF → resolve zone_id → upsert A record (ORIGIN_IP, CF_PROXIED)." >&2
+  echo "  --replace-cname permits replacing an existing Cloudflare Tunnel CNAME with the A record." >&2
   exit 1
 }
 
 NAME="${1:-}"
 DRY_RUN=false
+REPLACE_CNAME=false
 if [ -z "$NAME" ]; then
   usage
 fi
@@ -23,6 +25,7 @@ shift || true
 for arg in "$@"; do
   case "$arg" in
     --dry-run) DRY_RUN=true ;;
+    --replace-cname) REPLACE_CNAME=true ;;
     -h|--help) usage ;;
     *) usage ;;
   esac
@@ -95,23 +98,33 @@ if [ "${CF_PROXIED}" = "true" ] || [ "${CF_PROXIED}" = "1" ]; then
   PROXIED_JSON=true
 fi
 
-# Lookup existing A record
+# Lookup an existing A or CNAME record. Cloudflare Tunnel hostnames commonly
+# use a CNAME, which must be removed before an A record can be created.
 REC_RESP=$(curl -fsS "${AUTH_HDR[@]}" \
-  "${API}/zones/${ZONE_ID}/dns_records?type=A&name=${HOSTNAME}")
+  "${API}/zones/${ZONE_ID}/dns_records?name=${HOSTNAME}")
 if command -v jq >/dev/null 2>&1; then
-  REC_ID=$(echo "$REC_RESP" | jq -r '.result[0].id // empty')
-  CUR_IP=$(echo "$REC_RESP" | jq -r '.result[0].content // empty')
-  CUR_PROXIED=$(echo "$REC_RESP" | jq -r '.result[0].proxied // empty')
+  REC_LINE=$(echo "$REC_RESP" | jq -r '.result[]? | select(.type == "A" or .type == "CNAME") | [.id, .type, .content, (.proxied // false)] | @tsv' | head -1)
 else
-  REC_ID=$(echo "$REC_RESP" | python3 -c "import sys,json; r=json.load(sys.stdin).get('result') or []; print(r[0]['id'] if r else '')")
-  CUR_IP=$(echo "$REC_RESP" | python3 -c "import sys,json; r=json.load(sys.stdin).get('result') or []; print(r[0]['content'] if r else '')")
-  CUR_PROXIED=$(echo "$REC_RESP" | python3 -c "import sys,json; r=json.load(sys.stdin).get('result') or []; print(r[0]['proxied'] if r else '')")
+  REC_LINE=$(echo "$REC_RESP" | python3 -c 'import sys,json
+r=json.load(sys.stdin).get("result") or []
+for x in r:
+    if x.get("type") in ("A", "CNAME"):
+        print("\t".join(str(x.get(k, "")) for k in ("id", "type", "content", "proxied")))
+        break')
+fi
+
+REC_ID=""
+REC_TYPE=""
+CUR_IP=""
+CUR_PROXIED=""
+if [ -n "$REC_LINE" ]; then
+  IFS=$'\t' read -r REC_ID REC_TYPE CUR_IP CUR_PROXIED <<<"$REC_LINE"
 fi
 
 PAYLOAD=$(printf '{"type":"A","name":"%s","content":"%s","proxied":%s,"ttl":1}' \
   "$HOSTNAME" "$ORIGIN_IP" "$PROXIED_JSON")
 
-if [ -n "$REC_ID" ] && [ "$CUR_IP" = "$ORIGIN_IP" ]; then
+if [ -n "$REC_ID" ] && [ "$REC_TYPE" = "A" ] && [ "$CUR_IP" = "$ORIGIN_IP" ]; then
   # Normalize proxied comparison
   want_proxied="$PROXIED_JSON"
   have_proxied="$CUR_PROXIED"
@@ -125,8 +138,13 @@ fi
 
 if [ "$DRY_RUN" = true ]; then
   if [ -n "$REC_ID" ]; then
-    echo "[dry-run] Would UPDATE record ${REC_ID}: A ${HOSTNAME} → ${ORIGIN_IP} proxied=${PROXIED_JSON}"
-    echo "[dry-run] current: A ${CUR_IP} proxied=${CUR_PROXIED}"
+    if [ "$REC_TYPE" = "CNAME" ]; then
+      echo "[dry-run] Would DELETE record ${REC_ID}: CNAME ${HOSTNAME} → ${CUR_IP}"
+      echo "[dry-run] Would CREATE A ${HOSTNAME} → ${ORIGIN_IP} proxied=${PROXIED_JSON}"
+    else
+      echo "[dry-run] Would UPDATE record ${REC_ID}: A ${HOSTNAME} → ${ORIGIN_IP} proxied=${PROXIED_JSON}"
+      echo "[dry-run] current: A ${CUR_IP} proxied=${CUR_PROXIED}"
+    fi
   else
     echo "[dry-run] Would CREATE A ${HOSTNAME} → ${ORIGIN_IP} proxied=${PROXIED_JSON} in zone ${CF_ZONE} (${ZONE_ID})"
   fi
@@ -135,10 +153,33 @@ if [ "$DRY_RUN" = true ]; then
 fi
 
 if [ -n "$REC_ID" ]; then
-  echo "Updating DNS record ${REC_ID}..."
-  RESP=$(curl -fsS -X PUT "${AUTH_HDR[@]}" \
-    --data "$PAYLOAD" \
-    "${API}/zones/${ZONE_ID}/dns_records/${REC_ID}")
+  if [ "$REC_TYPE" = "CNAME" ]; then
+    if [ "$REPLACE_CNAME" != true ]; then
+      echo "Error: ${HOSTNAME} has a CNAME record; rerun with --replace-cname to replace it with A" >&2
+      exit 1
+    fi
+    echo "Deleting legacy CNAME record ${REC_ID}..."
+    DELETE_RESP=$(curl -fsS -X DELETE "${AUTH_HDR[@]}" \
+      "${API}/zones/${ZONE_ID}/dns_records/${REC_ID}")
+    if command -v jq >/dev/null 2>&1; then
+      DELETE_OK=$(echo "$DELETE_RESP" | jq -r '.success')
+    else
+      DELETE_OK=$(echo "$DELETE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('success'))")
+    fi
+    if [ "$DELETE_OK" != "True" ] && [ "$DELETE_OK" != "true" ]; then
+      echo "Error: legacy CNAME deletion failed: $DELETE_RESP" >&2
+      exit 1
+    fi
+    echo "Creating replacement A record..."
+    RESP=$(curl -fsS -X POST "${AUTH_HDR[@]}" \
+      --data "$PAYLOAD" \
+      "${API}/zones/${ZONE_ID}/dns_records")
+  else
+    echo "Updating DNS record ${REC_ID}..."
+    RESP=$(curl -fsS -X PUT "${AUTH_HDR[@]}" \
+      --data "$PAYLOAD" \
+      "${API}/zones/${ZONE_ID}/dns_records/${REC_ID}")
+  fi
 else
   echo "Creating DNS record..."
   RESP=$(curl -fsS -X POST "${AUTH_HDR[@]}" \

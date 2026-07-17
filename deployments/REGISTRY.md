@@ -9,6 +9,7 @@ Each row has a matching `deployments/<name>.env` record. Free-form notes live be
 |------|----------|--------|----------|------|-------|
 | example | quinmini.leanflag.net | pending | 10.29.0.99 (docs only) | oauth2 | Reference record + source of nginx/examples/quinmini.leanflag.net.conf; do not apply |
 | product-app-chat | product-app-chat.leanflag.net | active | 10.29.0.69:3101 | oauth2 | lo runtime; OpenWebUI off; opencode :4197 loopback; no ALLOW_CIDRS |
+| chat-alphascout | chat-alphascout.leanflag.net | active | 10.29.0.69:3000 | oauth2 | lean runtime; migrated from Cloudflare Tunnel; OpenWebUI off; no ALLOW_CIDRS |
 | quinmini | quinmini.leanflag.net | pending | `__FILL_ME__` | oauth2 | Blocked on UPSTREAM_HOST, CF_TOKEN_REF (ALLOW_CIDRS optional) |
 
 ## Notes
@@ -32,6 +33,19 @@ Wildcard cert `*.leanflag.net` covers the hostname.
 `123.16.178.142`; rerun the local 1Password-backed `cf-dns.sh` upsert to converge the
 live A record after this correction. Public HTTPS and direct origin HTTPS previously
 returned 302 to SSO oauth2 sign-in.
+
+### chat-alphascout
+
+Runtime host: SSH alias `lo` (`10.29.0.69`), checkout at
+`/home/beeketing/lean/mini-tunnel`. The runtime uses OpenCode `:4096` on
+loopback and OpenChamber `:3000`; the target OpenResty upstream is
+`10.29.0.69:3000`.
+
+The hostname previously used the legacy Cloudflare Tunnel path. The intended
+cutover is a proxied A record to OpenResty origin `123.16.178.142`, with the
+same OAuth2-only public gate as `product-app-chat`. Keep the tunnel available
+until the OpenResty vhost, DNS, upstream health, and public WebSocket checks
+all pass.
 
 ### example
 

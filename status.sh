@@ -21,6 +21,8 @@ ENABLE_CF_TUNNEL="${ENABLE_CF_TUNNEL:-false}"
 BIND_ADDR="${BIND_ADDR:-127.0.0.1}"
 CF_HOSTNAME="${CF_HOSTNAME:-quinmini.leanflag.net}"
 
+configure_code_profile
+
 cloudflared_is_service() {
   if command -v launchctl >/dev/null 2>&1; then
     launchctl list 2>/dev/null | grep -q cloudflared
@@ -68,6 +70,7 @@ else
 fi
 
 echo "bind: BIND_ADDR=$BIND_ADDR (opencode always 127.0.0.1)"
+echo "opencode profile: $OPENCODE_PROFILE_DIR"
 echo "route: OpenResty origin (deployments/ + bin/expose.sh) is the live path"
 
 if [ "$ENABLE_CF_TUNNEL" = true ]; then

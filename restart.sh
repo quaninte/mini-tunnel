@@ -18,6 +18,8 @@ OPENWEBUI_PORT="${OPENWEBUI_PORT:-8080}"
 ENABLE_CODE_STACK="${ENABLE_CODE_STACK:-true}"
 ENABLE_OPENWEBUI="${ENABLE_OPENWEBUI:-false}"
 
+configure_code_profile
+
 echo "=== Stopping services ==="
 "$DIR/stop.sh" || true
 
