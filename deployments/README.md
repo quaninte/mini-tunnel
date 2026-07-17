@@ -18,10 +18,10 @@ Git-tracked registry of mini-tunnel deployments fronted by OpenResty.
 | `OPENRESTY_HOST` | yes | SSH alias for the OpenResty box |
 | `SSL_CERT` | yes | Cert name under `/etc/letsencrypt/live/` |
 | `AUTH_MODE` | yes | `oauth2` or `none` |
-| `ALLOW_CIDRS` | yes* | Space-separated CIDRs; **required non-empty for `active`** |
+| `ALLOW_CIDRS` | no | Optional space-separated CIDRs. Empty/omitted = no IP allowlist (rely on `AUTH_MODE`). Populated = `allow` each CIDR then `deny all`. |
 
-\* `validate_deployment` fails closed: `DEPLOY_STATUS=active` with empty or
-`__FILL_ME__` `ALLOW_CIDRS` is rejected.
+\* `DEPLOY_STATUS=active` rejects `ALLOW_CIDRS=__FILL_ME__`. Empty allowlist with
+`AUTH_MODE=none` is also rejected (would leave the host open).
 
 Records are plain `KEY=VALUE` files sourced by bash. No YAML, no `jq` on the
 OpenResty box path.
@@ -31,9 +31,10 @@ OpenResty box path.
 ### Add a deployment
 
 1. Copy `deployments/example.env` → `deployments/<name>.env`.
-2. Fill every field. Leave `__FILL_ME__` only for values the user must supply
-   (`ALLOW_CIDRS`, `UPSTREAM_HOST`, `CF_TOKEN_REF`). Never invent CIDRs or IPs.
-3. Set `DEPLOY_STATUS=pending` until `ALLOW_CIDRS` is real; then `active`.
+2. Fill required fields. Leave `__FILL_ME__` only for values the user must supply
+   (`UPSTREAM_HOST`, `CF_TOKEN_REF`, optional `ALLOW_CIDRS`). Never invent CIDRs or IPs.
+3. `ALLOW_CIDRS` is optional: omit/empty to rely on OAuth2 only; set real CIDRs for an IP gate.
+   Prefer `DEPLOY_STATUS=pending` until `UPSTREAM_HOST` (and any desired allowlist) are real; then `active`.
 4. Add a row + notes section in `REGISTRY.md`.
 5. Render: `./bin/render.sh <name>` → writes `deployments/<name>.conf`.
 6. DNS (dry-run first): `./bin/cf-dns.sh <name> --dry-run` then without `--dry-run`.

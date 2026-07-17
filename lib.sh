@@ -42,12 +42,13 @@ wait_for_port_free() {
   return 0
 }
 
-# Wait until a port is open (in LISTEN).
+# Wait until a port is open (in LISTEN on any address).
+# Uses is_port_in_use (ss/lsof) so non-loopback BIND_ADDR works; /dev/tcp/127.0.0.1 alone misses LAN binds.
 # Returns 0 when open, 1 on timeout.
 wait_for_port() {
   local port=$1 name=$2 max=${3:-30}
   local i=0
-  while ! (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; do
+  while ! is_port_in_use "$port"; do
     i=$((i + 1))
     if [ "$i" -ge "$max" ]; then
       echo "Timeout waiting for $name on port $port"

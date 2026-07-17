@@ -30,16 +30,15 @@ server {
 
     # Server-scoped realip (POST_READ). NEVER put these at http level —
     # this box fronts ~200 vhosts and global scope would rewrite $remote_addr for all.
-    # Stale CF ranges fail closed: edge IPs won't match ALLOW_CIDRS.
+    # When ALLOW_CIDRS is set, stale CF ranges fail closed: edge IPs won't match.
 {{REAL_IP_BLOCK}}
     real_ip_header CF-Connecting-IP;
     real_ip_recursive on;
 
-    # Allow/deny gate (ACCESS phase; sees true client IP after realip).
+    # Optional allow/deny gate (ACCESS phase; sees true client IP after realip).
+    # Empty ALLOW_CIDRS → omit entirely (rely on AUTH_MODE). Populated → allow …; deny all;
     # Bare directives at server level — house convention (frp-server.conf:110).
 {{ALLOW_BLOCK}}
-    deny all;
-
 {{OAUTH2_BLOCK}}
     location / {
 {{AUTH_REQUEST_BLOCK}}

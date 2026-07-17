@@ -46,7 +46,8 @@ list_deployments() {
   done
 }
 
-# Validate a loaded (or named) deployment. Fail closed on active + bad ALLOW_CIDRS.
+# Validate a loaded (or named) deployment.
+# ALLOW_CIDRS is optional: empty/omitted means no IP allowlist (rely on AUTH_MODE).
 # Usage: validate_deployment [name]
 # If name is given, load_deployment is called first.
 validate_deployment() {
@@ -79,14 +80,19 @@ validate_deployment() {
       ;;
   esac
 
-  # Fail closed: active deployments must have real ALLOW_CIDRS
+  # ALLOW_CIDRS is optional (empty = no IP gate). Reject placeholder on active.
   if [ "${DEPLOY_STATUS:-}" = "active" ]; then
-    if [ -z "${ALLOW_CIDRS:-}" ] || [ "${ALLOW_CIDRS}" = "__FILL_ME__" ]; then
-      echo "Error: DEPLOY_STATUS=active requires non-empty ALLOW_CIDRS (not __FILL_ME__). Fail closed." >&2
+    if [ "${ALLOW_CIDRS:-}" = "__FILL_ME__" ]; then
+      echo "Error: DEPLOY_STATUS=active rejects ALLOW_CIDRS=__FILL_ME__ (omit or set real CIDRs)." >&2
       missing=1
     fi
     if [ "${UPSTREAM_HOST:-}" = "__FILL_ME__" ] || [ -z "${UPSTREAM_HOST:-}" ]; then
       echo "Error: DEPLOY_STATUS=active requires a real UPSTREAM_HOST (not __FILL_ME__)" >&2
+      missing=1
+    fi
+    # Empty ALLOW_CIDRS + AUTH_MODE=none leaves the host open; require an explicit decision.
+    if [ -z "${ALLOW_CIDRS:-}" ] && [ "${AUTH_MODE:-}" = "none" ]; then
+      echo "Error: DEPLOY_STATUS=active with empty ALLOW_CIDRS requires AUTH_MODE=oauth2 (or set ALLOW_CIDRS)." >&2
       missing=1
     fi
   fi

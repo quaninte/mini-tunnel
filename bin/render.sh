@@ -29,10 +29,11 @@ done
 load_deployment "$NAME" || exit 1
 validate_deployment || exit 1
 
-# Active records must not still have placeholders that would produce a broken conf
+# Active records must not still have the __FILL_ME__ placeholder for ALLOW_CIDRS.
+# Empty/omitted ALLOW_CIDRS is allowed (no IP allowlist; rely on AUTH_MODE).
 if [ "${DEPLOY_STATUS}" = "active" ]; then
-  if [ "${ALLOW_CIDRS}" = "__FILL_ME__" ] || [ -z "${ALLOW_CIDRS}" ]; then
-    echo "Error: cannot render active deployment with empty/__FILL_ME__ ALLOW_CIDRS" >&2
+  if [ "${ALLOW_CIDRS:-}" = "__FILL_ME__" ]; then
+    echo "Error: cannot render active deployment with ALLOW_CIDRS=__FILL_ME__" >&2
     exit 1
   fi
 fi
@@ -63,13 +64,17 @@ else
   exit 1
 fi
 
-# Build ALLOW_BLOCK from space-separated CIDRs (skip __FILL_ME__ / empty for pending)
+# Build ALLOW_BLOCK from space-separated CIDRs.
+# Empty/omitted/__FILL_ME__ → no allow/deny gate (OAuth2 or other AUTH_MODE is the control).
+# Populated → allow each CIDR then deny all (existing house convention).
 ALLOW_BLOCK=""
 if [ -n "${ALLOW_CIDRS:-}" ] && [ "${ALLOW_CIDRS}" != "__FILL_ME__" ]; then
   for cidr in $ALLOW_CIDRS; do
     ALLOW_BLOCK="${ALLOW_BLOCK}    allow ${cidr};
 "
   done
+  ALLOW_BLOCK="${ALLOW_BLOCK}    deny all;
+"
 fi
 
 # OAuth2 blocks — omitted entirely when AUTH_MODE=none

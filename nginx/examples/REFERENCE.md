@@ -42,7 +42,7 @@ gathered it.
 |---------|-------------|
 | Bare `allow <cidr>;` then `deny all;` at **server** level | `others/frp-server.conf:110`, `others/convert-core-image.conf:119` |
 | No `geo` / `map` for allowlisting | nothing on that box uses them for this |
-| Template field | `ALLOW_CIDRS` (space-separated) → one `allow` line each |
+| Template field | `ALLOW_CIDRS` (optional, space-separated) → one `allow` line each + `deny all;` when set; omit both when empty |
 
 ## Real client IP behind Cloudflare (proxied)
 
@@ -51,7 +51,7 @@ gathered it.
 | `set_real_ip_from <cf-cidr>;` + `real_ip_header CF-Connecting-IP;` | orange-cloud: `$remote_addr` is a CF edge IP until rewritten |
 | **Inside our `server {}` only** | global/http scope would rewrite `$remote_addr` for ~200 other vhosts |
 | Phase order is load-bearing | realip = POST_READ, allow/deny = ACCESS → allowlist sees true client |
-| Stale CF ranges fail **closed** | edge IP matches no `ALLOW_CIDRS` → deny all |
+| Stale CF ranges fail **closed** when allowlist set | edge IP matches no `ALLOW_CIDRS` → deny all |
 | Ranges emitted by | `bin/cf-ranges.sh` (public `cloudflare.com/ips-v4` + `ips-v6`) |
 
 ## SSL
@@ -83,7 +83,7 @@ Regenerate (must not drift): `./bin/render.sh example --stdout > nginx/examples/
 | `ssl_certificate*` | `SSL_CERT` |
 | `access_log` / `error_log` | `DEPLOY_NAME` |
 | `set_real_ip_from` lines | live CF ranges via `bin/cf-ranges.sh` |
-| `allow …;` | `ALLOW_CIDRS` |
+| `allow …;` + `deny all;` (or omitted) | `ALLOW_CIDRS` (optional) |
 | `/oauth2` + `auth_request` | `AUTH_MODE=oauth2` |
 | `proxy_pass http://mt_…` | named upstream from above |
 
