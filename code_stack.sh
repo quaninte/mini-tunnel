@@ -68,11 +68,13 @@ start_code_stack() {
     openchamber_skip=true
   fi
   if [ "$openchamber_skip" = false ]; then
+    # Only openchamber honors BIND_ADDR; opencode stays 127.0.0.1 (backend, never LAN).
+    local bind_addr="${BIND_ADDR:-127.0.0.1}"
     echo "Starting openchamber..."
     OPENCODE_HOST="http://127.0.0.1:$OPENCODE_PORT" \
       openchamber serve \
       --port "$OPENCHAMBER_PORT" \
-      --host 127.0.0.1 \
+      --host "$bind_addr" \
       --ui-password "$PASS_KEY" \
       --foreground >"$DIR/openchamber.log" 2>&1 &
     OPENCHAMBER_PID=$!
@@ -80,8 +82,9 @@ start_code_stack() {
     wait_for_port "$OPENCHAMBER_PORT" "openchamber" 15
   fi
 
+  local bind_addr="${BIND_ADDR:-127.0.0.1}"
   echo "  opencode:     http://127.0.0.1:$OPENCODE_PORT (PID ${OPENCODE_PID:-already running})"
-  echo "  openchamber:  http://127.0.0.1:$OPENCHAMBER_PORT (PID ${OPENCHAMBER_PID:-already running})"
+  echo "  openchamber:  http://${bind_addr}:$OPENCHAMBER_PORT (PID ${OPENCHAMBER_PID:-already running})"
 }
 
 stop_code_stack() {

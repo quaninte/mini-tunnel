@@ -2,3 +2,5 @@
 *.log
 tmp/
 .serena/memories
+.agents/handoffs
+.agent/handoffs

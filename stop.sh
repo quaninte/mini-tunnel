@@ -20,6 +20,7 @@ OPENCHAMBER_PORT="${OPENCHAMBER_PORT:-3000}"
 OPENWEBUI_PORT="${OPENWEBUI_PORT:-8080}"
 ENABLE_CODE_STACK="${ENABLE_CODE_STACK:-true}"
 ENABLE_OPENWEBUI="${ENABLE_OPENWEBUI:-false}"
+ENABLE_CF_TUNNEL="${ENABLE_CF_TUNNEL:-false}"
 
 cloudflared_is_service() {
   if command -v launchctl >/dev/null 2>&1; then
@@ -31,32 +32,37 @@ cloudflared_is_service() {
   fi
 }
 
-if cloudflared_is_service && [ ! -f "$PID_DIR/cloudflared.pid" ]; then
-  echo "cloudflared: managed by system service (skipping stop)"
-else
-  if [ -f "$PID_DIR/cloudflared.pid" ]; then
-    pid=$(cat "$PID_DIR/cloudflared.pid")
+if [ "$ENABLE_CF_TUNNEL" = true ]; then
+  if cloudflared_is_service && [ ! -f "$PID_DIR/cloudflared.pid" ]; then
+    echo "cloudflared: managed by system service (skipping stop)"
+  else
+    if [ -f "$PID_DIR/cloudflared.pid" ]; then
+      pid=$(cat "$PID_DIR/cloudflared.pid")
+      if is_process_alive "$pid"; then
+        kill_and_wait "$pid" 5 3
+        echo "Stopped cloudflared (PID $pid)"
+      else
+        echo "cloudflared (PID $pid) not running"
+      fi
+      rm -f "$PID_DIR/cloudflared.pid"
+    else
+      echo "cloudflared: no pidfile found"
+    fi
+  fi
+
+  if [ -f "$PID_DIR/cloudflared-openwebui.pid" ]; then
+    pid=$(cat "$PID_DIR/cloudflared-openwebui.pid")
     if is_process_alive "$pid"; then
       kill_and_wait "$pid" 5 3
-      echo "Stopped cloudflared (PID $pid)"
+      echo "Stopped cloudflared-openwebui (PID $pid)"
     else
-      echo "cloudflared (PID $pid) not running"
+      echo "cloudflared-openwebui (PID $pid) not running"
     fi
-    rm -f "$PID_DIR/cloudflared.pid"
-  else
-    echo "cloudflared: no pidfile found"
+    rm -f "$PID_DIR/cloudflared-openwebui.pid"
   fi
-fi
-
-if [ -f "$PID_DIR/cloudflared-openwebui.pid" ]; then
-  pid=$(cat "$PID_DIR/cloudflared-openwebui.pid")
-  if is_process_alive "$pid"; then
-    kill_and_wait "$pid" 5 3
-    echo "Stopped cloudflared-openwebui (PID $pid)"
-  else
-    echo "cloudflared-openwebui (PID $pid) not running"
-  fi
-  rm -f "$PID_DIR/cloudflared-openwebui.pid"
+else
+  # Tunnel path disabled — still clean stale pidfiles if present
+  rm -f "$PID_DIR/cloudflared.pid" "$PID_DIR/cloudflared-openwebui.pid" 2>/dev/null || true
 fi
 
 if [ "$ENABLE_CODE_STACK" = true ]; then

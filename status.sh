@@ -17,6 +17,9 @@ fi
 OPENWEBUI_PORT="${OPENWEBUI_PORT:-8080}"
 ENABLE_CODE_STACK="${ENABLE_CODE_STACK:-true}"
 ENABLE_OPENWEBUI="${ENABLE_OPENWEBUI:-false}"
+ENABLE_CF_TUNNEL="${ENABLE_CF_TUNNEL:-false}"
+BIND_ADDR="${BIND_ADDR:-127.0.0.1}"
+CF_HOSTNAME="${CF_HOSTNAME:-quinmini.leanflag.net}"
 
 cloudflared_is_service() {
   if command -v launchctl >/dev/null 2>&1; then
@@ -42,9 +45,9 @@ check_pid_service() {
     fi
   fi
 
-  if is_port_in_use "$port"; then
+  if [ -n "${port:-}" ] && is_port_in_use "$port"; then
     status="$status, port $port occupied"
-  else
+  elif [ -n "${port:-}" ]; then
     status="$status, port $port free"
   fi
 
@@ -64,12 +67,20 @@ else
   echo "openwebui: disabled (ENABLE_OPENWEBUI=false)"
 fi
 
-if cloudflared_is_service; then
-  echo "cloudflared: running (system service)"
-else
-  check_pid_service "cloudflared" "" "cloudflared"
-fi
+echo "bind: BIND_ADDR=$BIND_ADDR (opencode always 127.0.0.1)"
+echo "route: OpenResty origin (deployments/ + bin/expose.sh) is the live path"
 
-if [ "$ENABLE_OPENWEBUI" = true ] && [ -n "${OPENWEBUI_CF_TUNNEL_TOKEN:-}" ]; then
-  check_pid_service "cloudflared-openwebui" "" "cloudflared-openwebui"
+if [ "$ENABLE_CF_TUNNEL" = true ]; then
+  echo "cloudflared: ENABLED (DEPRECATED — prefer OpenResty routing)"
+  if cloudflared_is_service; then
+    echo "cloudflared: running (system service)"
+  else
+    check_pid_service "cloudflared" "" "cloudflared"
+  fi
+  if [ "$ENABLE_OPENWEBUI" = true ] && [ -n "${OPENWEBUI_CF_TUNNEL_TOKEN:-}" ]; then
+    check_pid_service "cloudflared-openwebui" "" "cloudflared-openwebui"
+  fi
+  echo "tunnel hostname: $CF_HOSTNAME"
+else
+  echo "cloudflared: disabled (ENABLE_CF_TUNNEL=false)"
 fi
