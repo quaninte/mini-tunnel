@@ -2,5 +2,8 @@
 *.log
 tmp/
 .serena/memories
+
+# Agents
 .agents/handoffs
 .agent/handoffs
+.agents/plans/drafts

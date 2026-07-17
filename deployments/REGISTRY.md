@@ -28,10 +28,9 @@ OpenResty origin: `195.85.88.187` (SSH `local-sbase-dev-openresty`, internal `10
 Wildcard cert `*.leanflag.net` covers the hostname.
 
 **Rollout (2026-07-17):** vhost applied via `bin/expose.sh` (`nginx -t` ok). Upstream
-`10.29.0.69:3101/health` → 200 from OpenResty. Origin HTTPS + Host header → 302 to
-SSO oauth2 sign-in. **DNS blocked:** local `op` cannot read `CF_TOKEN_REF` (CLI ↔
-1Password desktop app integration not enabled / timed out). NXDOMAIN until
-`./bin/cf-dns.sh product-app-chat` succeeds after `op` auth works (`OP_ACCOUNT` if needed).
+`10.29.0.69:3101/health` → 200 from OpenResty. Cloudflare DNS upserted locally with
+`OP_ACCOUNT=my.1password.com`: A record proxied to `195.85.88.187`. Public HTTPS and
+direct origin HTTPS both return 302 to SSO oauth2 sign-in. DNS resolves via Cloudflare.
 
 ### example
 
