@@ -38,6 +38,9 @@ OpenResty box path.
 4. Add a row + notes section in `REGISTRY.md`.
 5. Render: `./bin/render.sh <name>` → writes `deployments/<name>.conf`.
 6. DNS (dry-run first): `./bin/cf-dns.sh <name> --dry-run` then without `--dry-run`.
+   For a hostname currently backed by a Cloudflare Tunnel CNAME, review the
+   replacement with `./bin/cf-dns.sh <name> --dry-run --replace-cname`, then
+   use the same `--replace-cname` flag for the approved live A-record cutover.
 7. Apply: `./bin/expose.sh <name>` (render → scp → `nginx -t` → reload; rolls back on fail).
 
 ## Cloudflare token in 1Password
